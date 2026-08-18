@@ -1,35 +1,16 @@
 {
   "name": "SiYuan-Smiles",
   "author": "Peter Promok",
-  "url": "https://codeberg.org/peter_promok/SiYuan-Smiles",
-  "version": "1.0.0",
+  "url": "https://github.com/CChartreux/SiYuan-Smiles",
+  "version": "1.1.2",
   "minAppVersion": "3.8.0",
   "kernels": [
-    "windows",
-    "linux",
-    "darwin",
-    "ios",
-    "android",
-    "harmony",
-    "docker",
     "all"
   ],
   "backends": [
-    "windows",
-    "linux",
-    "darwin",
-    "ios",
-    "android",
-    "harmony",
-    "docker",
     "all"
   ],
   "frontends": [
-    "desktop",
-    "mobile",
-    "browser-desktop",
-    "browser-mobile",
-    "desktop-window",
     "all"
   ],
   "disabledInPublish": false,
