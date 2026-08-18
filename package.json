@@ -2,7 +2,7 @@
   "name": "siyuan-smiles",
   "version": "1.0.0",
   "description": "Plugin to draw SMILES inside SiYuan",
-  "main": "./src/index.js",
+  "main": ".src/index.js",
   "scripts": {
     "format": "dprint fmt",
     "format:check": "dprint check",

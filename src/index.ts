@@ -12,11 +12,10 @@ export default class SmilesRendererPlugin extends Plugin {
         // Register a slash command to open the Dialog
         this.protyleSlash = [{
             filter: ["insert", "chem", "smiles"],
-            html:
-                `<div class="b3-list-item__first"><span class="b3-list-item__text">${this.i18n.insertSmilesDiagram}</span></div>`,
+            html: `<div class="b3-list-item__first"><span class="b3-list-item__text">${this.i18n.insertSmilesDiagram}</span></div>`,
             id: "insert-smiles-dialog",
-            callback: () => {
-                this.smilesRenderer.showSmilesDialog("n1ccccc1");
+            callback: (protyle) => {
+                this.smilesRenderer.showSmilesDialog("n1ccccc1", protyle);
             },
         }];
     }

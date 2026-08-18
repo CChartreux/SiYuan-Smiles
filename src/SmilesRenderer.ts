@@ -1,5 +1,5 @@
 // SmilesRenderer.ts
-import {Dialog} from "siyuan";
+import {Dialog, IProtyle, Protyle} from "siyuan";
 import SmilesDrawer from "smiles-drawer";
 
 export type AtomVisualization = "default" | "balls" | "allballs";
@@ -102,7 +102,7 @@ export class SmilesRenderer {
         smilesReactionOptions?: SmilesReactionOptions,
     ) {
         this.i18n = i18n;
-        this.smilesMoleculeOptions = {...DEFAULT_MOLECULE_OPTIONS, ...smilesMoleculeOptions};
+        this.smilesMoleculeOptions = { ...DEFAULT_MOLECULE_OPTIONS, ...smilesMoleculeOptions };
         this.smilesDrawer = new SmilesDrawer.SmiDrawer(this.smilesMoleculeOptions, {
             ...DEFAULT_REACTION_OPTIONS,
             smilesReactionOptions,
@@ -118,8 +118,10 @@ export class SmilesRenderer {
         this.smilesDrawer.draw(smiles, target, "dark", onSuccess, onError);
     }
 
-    async captureSvgFromDialog(dialog: Dialog) {
+    captureSvgFromDialog(dialog: Dialog): string {
         const svgElement = dialog.element.querySelector(".siyuan-smiles-svg") as SVGSVGElement;
+        if (!svgElement) return "";
+
         const viewBox = svgElement.viewBox.baseVal;
         const imageScaleFactor = 4;
 
@@ -128,29 +130,55 @@ export class SmilesRenderer {
             width = viewBox.width || 350,
             height = viewBox.height || 350;
 
-        const xml = `<svg xmlns="http://www.w3.org/2000/svg" width="${width * imageScaleFactor}" height="${
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="${width * imageScaleFactor}" height="${
             height * imageScaleFactor
         }" viewBox="${xOffset} ${yOffset} ${width} ${height}">${svgElement.innerHTML}</svg>`;
-
-        const imageElement = new Image();
-        imageElement.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
-        await imageElement.decode();
-
-        const canvas = document.createElement("canvas");
-        canvas.width = width * imageScaleFactor;
-        canvas.height = height * imageScaleFactor;
-        canvas.getContext("2d")?.drawImage(imageElement, 0, 0);
-
-        canvas.toBlob(blob => {
-            if (blob) navigator.clipboard.write([new ClipboardItem({"image/png": blob})]);
-        });
     }
 
-    showSmilesDialog(initialSmiles: string): Dialog {
+    /**
+     * Converts the SVG string to a PNG Data URL and copies it to the clipboard.
+     * Returns the PNG Data URL string.
+     */
+    async processSvgToPng(svgXml: string): Promise<string> {
+        if (!svgXml) return "";
+
+        const imageElement = new Image();
+        imageElement.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgXml);
+        await imageElement.decode();
+
+        const width = imageElement.naturalWidth || imageElement.width;
+        const height = imageElement.naturalHeight || imageElement.height;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Failed to get 2D canvas context");
+        ctx.drawImage(imageElement, 0, 0);
+
+        const pngDataUrl = canvas.toDataURL("image/png");
+
+        // Write PNG Blob to clipboard
+        await new Promise<void>((resolve, reject) => {
+            canvas.toBlob(blob => {
+                if (blob) {
+                    navigator.clipboard
+                        .write([new ClipboardItem({ "image/png": blob })])
+                        .then(resolve)
+                        .catch(reject);
+                } else {
+                    reject(new Error("Failed to create PNG blob from SVG canvas"));
+                }
+            });
+        });
+
+        return pngDataUrl;
+    }
+
+    showSmilesDialog(initialSmiles: string, protyle: Protyle): void {
         const dialog = new Dialog({
             title: this.i18n.dialogTitle || "Chemical Structure Viewer",
-            content:
-                `<div class="smiles-dialog-container" style="display:flex; flex-direction:column; align-items:center; gap:8px; padding:16px; box-sizing:border-box;">
+            content: `<div class="smiles-dialog-container" style="display:flex; flex-direction:column; align-items:center; gap:8px; padding:16px; box-sizing:border-box;">
                 <svg class="siyuan-smiles-svg" width="200px" height="200px"></svg>
                 <div class="smiles-error" style="color:#f44336; width:100%;"></div>
                 <input class="b3-text-field smiles-input" value="${initialSmiles}" style="width:100%; box-sizing:border-box;" />
@@ -170,24 +198,33 @@ export class SmilesRenderer {
                 inputElement.value.trim(),
                 svgElement,
                 () => {
-                    const {width: viewBoxWidth, height: viewBoxHeight} = svgElement.viewBox.baseVal;
-
+                    const { width: viewBoxWidth, height: viewBoxHeight } = svgElement.viewBox.baseVal;
                     svgElement.style.width = `${viewBoxWidth * 2}px`;
                     svgElement.style.height = `${viewBoxHeight * 2}px`;
                 },
-                err => errorElement.textContent = err,
+                err => (errorElement.textContent = err),
             );
         };
 
         render();
         inputElement.oninput = render;
-        inputElement.onkeydown = e => {
+
+        inputElement.onkeydown = async e => {
             if (e.key === "Enter") {
                 e.preventDefault();
-                this.captureSvgFromDialog(dialog).then(() => {
-                    errorElement.style.color = "#4caf50";
-                    errorElement.textContent = this.i18n.copiedToClipboard || "Copied SVG to clipboard!";
-                });
+                const svgXml = this.captureSvgFromDialog(dialog);
+
+                if (svgXml) {
+                    try {
+                        const pngDataUrl = await this.processSvgToPng(svgXml);
+
+                        protyle.insert(`![Smiles](${pngDataUrl})`, true, true);
+                        dialog.destroy();
+                    } catch (err) {
+                        errorElement.style.color = "#f44336";
+                        errorElement.textContent = String(err);
+                    }
+                }
             }
         };
 
@@ -195,7 +232,5 @@ export class SmilesRenderer {
             inputElement.focus();
             inputElement.select();
         });
-
-        return dialog;
     }
 }
