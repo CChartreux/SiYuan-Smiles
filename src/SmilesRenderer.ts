@@ -1,5 +1,5 @@
 // SmilesRenderer.ts
-import {Dialog, IProtyle, Protyle} from "siyuan";
+import {Dialog, Protyle} from "siyuan";
 import SmilesDrawer from "smiles-drawer";
 
 export type AtomVisualization = "default" | "balls" | "allballs";
@@ -118,6 +118,29 @@ export class SmilesRenderer {
         this.smilesDrawer.draw(smiles, target, "dark", onSuccess, onError);
     }
 
+    /**
+     * Extracts the molecular formula / chemical notation calculated by SmilesDrawer.
+     */
+    private getNotation(smiles: string): Promise<string> {
+        return new Promise(resolve => {
+            try {
+                SmilesDrawer.parse(
+                    smiles,
+                    (molecule: any) => {
+                        if (molecule && typeof molecule.getFormula === "function") {
+                            resolve(molecule.getFormula());
+                        } else {
+                            resolve(smiles);
+                        }
+                    },
+                    () => resolve(smiles),
+                );
+            } catch {
+                resolve(smiles);
+            }
+        });
+    }
+
     captureSvgFromDialog(dialog: Dialog): string {
         const svgElement = dialog.element.querySelector(".siyuan-smiles-svg") as SVGSVGElement;
         if (!svgElement) return "";
@@ -212,13 +235,19 @@ export class SmilesRenderer {
         inputElement.onkeydown = async e => {
             if (e.key === "Enter") {
                 e.preventDefault();
+                const rawSmiles = inputElement.value.trim();
                 const svgXml = this.captureSvgFromDialog(dialog);
 
                 if (svgXml) {
                     try {
                         const pngDataUrl = await this.processSvgToPng(svgXml);
+                        const notation = await this.getNotation(rawSmiles);
 
-                        protyle.insert(`![Smiles](${pngDataUrl})`, true, true);
+                        const escapedTitle = notation
+                            .replace(/\\/g, "\\\\")
+                            .replace(/"/g, '\\"');
+
+                        protyle.insert(`![Smiles](${pngDataUrl} "${escapedTitle}")`, true, true);
                         dialog.destroy();
                     } catch (err) {
                         errorElement.style.color = "#f44336";
