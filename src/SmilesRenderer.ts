@@ -1,6 +1,6 @@
 // SmilesRenderer.ts
-import SmilesDrawer from "smiles-drawer";
 import {Dialog} from "siyuan";
+import SmilesDrawer from "smiles-drawer";
 
 export type AtomVisualization = "default" | "balls" | "allballs";
 export type CarbonVisualization = "none" | "default" | "terminal" | "acyclic" | "all";
@@ -81,14 +81,14 @@ const DEFAULT_REACTION_OPTIONS: SmilesReactionOptions = {
     spacing: 10,
     plus: {
         size: 5,
-        thickness: 0.8
+        thickness: 0.8,
     },
     arrow: {
         length: 30,
         thickness: 1,
         headSize: 10,
-        margin: 3
-    }
+        margin: 3,
+    },
 };
 
 export class SmilesRenderer {
@@ -99,17 +99,22 @@ export class SmilesRenderer {
     constructor(
         i18n: Record<string, string> = {},
         smilesMoleculeOptions?: SmilesMoleculeOptions,
-        smilesReactionOptions?: SmilesReactionOptions
+        smilesReactionOptions?: SmilesReactionOptions,
     ) {
         this.i18n = i18n;
         this.smilesMoleculeOptions = {...DEFAULT_MOLECULE_OPTIONS, ...smilesMoleculeOptions};
         this.smilesDrawer = new SmilesDrawer.SmiDrawer(this.smilesMoleculeOptions, {
             ...DEFAULT_REACTION_OPTIONS,
-            smilesReactionOptions
+            smilesReactionOptions,
         });
     }
 
-    private drawSmiles(smiles: string, target: SVGElement, onSuccess: () => void, onError: (err: string) => void): void {
+    private drawSmiles(
+        smiles: string,
+        target: SVGElement,
+        onSuccess: () => void,
+        onError: (err: string) => void,
+    ): void {
         this.smilesDrawer.draw(smiles, target, "dark", onSuccess, onError);
     }
 
@@ -123,7 +128,9 @@ export class SmilesRenderer {
             width = viewBox.width || 350,
             height = viewBox.height || 350;
 
-        const xml = `<svg xmlns="http://www.w3.org/2000/svg" width="${width * imageScaleFactor}" height="${height * imageScaleFactor}" viewBox="${xOffset} ${yOffset} ${width} ${height}">${svgElement.innerHTML}</svg>`;
+        const xml = `<svg xmlns="http://www.w3.org/2000/svg" width="${width * imageScaleFactor}" height="${
+            height * imageScaleFactor
+        }" viewBox="${xOffset} ${yOffset} ${width} ${height}">${svgElement.innerHTML}</svg>`;
 
         const imageElement = new Image();
         imageElement.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
@@ -142,12 +149,13 @@ export class SmilesRenderer {
     showSmilesDialog(initialSmiles: string): Dialog {
         const dialog = new Dialog({
             title: this.i18n.dialogTitle || "Chemical Structure Viewer",
-            content: `<div class="smiles-dialog-container" style="display:flex; flex-direction:column; align-items:center; gap:8px; padding:16px; box-sizing:border-box;">
+            content:
+                `<div class="smiles-dialog-container" style="display:flex; flex-direction:column; align-items:center; gap:8px; padding:16px; box-sizing:border-box;">
                 <svg class="siyuan-smiles-svg" width="200px" height="200px"></svg>
                 <div class="smiles-error" style="color:#f44336; width:100%;"></div>
                 <input class="b3-text-field smiles-input" value="${initialSmiles}" style="width:100%; box-sizing:border-box;" />
             </div>`,
-            width: "auto"
+            width: "auto",
         });
 
         const inputElement = dialog.element.querySelector(".smiles-input") as HTMLInputElement;
@@ -167,7 +175,7 @@ export class SmilesRenderer {
                     svgElement.style.width = `${viewBoxWidth * 2}px`;
                     svgElement.style.height = `${viewBoxHeight * 2}px`;
                 },
-                err => errorElement.textContent = err
+                err => errorElement.textContent = err,
             );
         };
 
