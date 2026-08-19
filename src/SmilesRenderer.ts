@@ -75,6 +75,8 @@ const DEFAULT_MOLECULE_OPTIONS: SmilesMoleculeOptions = {
     showCarbons: "acyclic",
     explicitHydrogens: true,
     atomVisualization: "default",
+    compactDrawing: false,
+    isomeric: true,
 };
 
 const DEFAULT_REACTION_OPTIONS: SmilesReactionOptions = {
