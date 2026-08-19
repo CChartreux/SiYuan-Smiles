@@ -1,13 +1,18 @@
 name: Create Release
 
 on:
-  # Input the version number from the developer
+  # Input the version bump type
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Release version (e.g. v1.2.3)'
+      bump_type:
+        description: 'Select version bump type'
         required: true
-        type: string
+        type: choice
+        default: 'patch'
+        options:
+          - patch
+          - minor
+          - major
 
 # Required permissions to create a release and push tags
 permissions:
@@ -19,43 +24,60 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout code with the whole git history
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0 # Fetches all history for git log to work properly
 
+      # Setup Node.js using npm and node version 24
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '24' # Change to your required Node version
           cache: 'npm'
 
+      # Install the required dependencies from the lockfile
       - name: Install dependencies
-        run: npm ci # Use 'npm install' if you don't have a lockfile
+        run: npm ci
 
+      # Update the version in package.json and plugin.json
       - name: Update version in code
+        id: versionBump
         run: |
-          VERSION=${{ inputs.version }}
-          CLEAN_VERSION=${VERSION#v}
-          
-          echo "Updating versions to $CLEAN_VERSION..."
-          
-          # Update package.json
+          # Update package.json and package-lock.json and catch the new version
           # --no-git-tag-version prevents npm from making its own commit/tag
-          # --allow-same-version prevents failure if version is already set
-          npm version $CLEAN_VERSION --no-git-tag-version --allow-same-version
+          NEW_VERSION=$(npm version ${{ inputs.bump_type }} --no-git-tag-version)
           
-          # Update plugin.json using jq
-          jq --arg v "$CLEAN_VERSION" '.version = $v' plugin.json > tmp.plugin.json && mv tmp.plugin.json plugin.json
-          
-          echo "Versions updated successfully."
+          # Strip the v from the version (e.g. v1.0.0 -> 1.0.0)
+          STRIPPED_VERSION=${NEW_VERSION#v}
 
+          # Update plugin.json using jq
+          jq --arg v "$STRIPPED_VERSION" '.version = $v' plugin.json > tmp.plugin.json && mv tmp.plugin.json plugin.json
+          
+          # Save the new version for step: Commit and push updated version
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          
+          echo "Versions updated to $STRIPPED_VERSION successfully."
+
+      - name: Commit and push updated version
+        run: |
+          # Add the git credentials of the github actions bot
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Add the updated files
+          git add -u
+          
+          # Commit files
+          git commit -m "chore(release): bump version to ${{ steps.versionBump.outputs.new_version }}"
+          git push origin HEAD:${{ github.ref_name }}
+
+      # Build the project
       - name: Build project
         run: npm run build
 
-      # This step assumes your build script outputs a file named 'package.zip' in the root directory.
-      # If it outputs to a different directory (e.g., dist/package.zip), change the path in the next step.
-
+      # Generate commit list since last release
       - name: Generate commit list since last release
         id: changelog
         run: |
@@ -68,6 +90,7 @@ jobs:
             COMMITS=$(git log --pretty=format:"- %s" HEAD | sed 's/`/\\`/g')
           else
             echo "Previous tag found: $PREV_TAG"
+            # Sanitize commit messages to prevent shell injection or YAML parsing errors
             COMMITS=$(git log $PREV_TAG..HEAD --pretty=format:"- %s" | sed 's/`/\\`/g')
           fi
 
@@ -77,10 +100,10 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release and Upload Zip
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ inputs.version }}
-          name: ${{ inputs.version }}
+          tag_name: ${{ steps.versionBump.outputs.new_version }}
+          name: ${{ steps.versionBump.outputs.new_version }}
           body: |
             ## Changelog
             ${{ steps.changelog.outputs.commits }}
