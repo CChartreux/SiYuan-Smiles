@@ -1,0 +1,88 @@
+name: Create Release
+
+on:
+  # Input the version number from the developer
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v1.2.3)'
+        required: true
+        type: string
+
+# Required permissions to create a release and push tags
+permissions:
+  contents: write
+
+# Create a new release
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetches all history for git log to work properly
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24' # Change to your required Node version
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci # Use 'npm install' if you don't have a lockfile
+
+      - name: Update version in code
+        run: |
+          VERSION=${{ inputs.version }}
+          CLEAN_VERSION=${VERSION#v}
+          
+          echo "Updating versions to $CLEAN_VERSION..."
+          
+          # Update package.json
+          # --no-git-tag-version prevents npm from making its own commit/tag
+          # --allow-same-version prevents failure if version is already set
+          npm version $CLEAN_VERSION --no-git-tag-version --allow-same-version
+          
+          # Update plugin.json using jq
+          jq --arg v "$CLEAN_VERSION" '.version = $v' plugin.json > tmp.plugin.json && mv tmp.plugin.json plugin.json
+          
+          echo "Versions updated successfully."
+
+      - name: Build project
+        run: npm run build
+
+      # This step assumes your build script outputs a file named 'package.zip' in the root directory.
+      # If it outputs to a different directory (e.g., dist/package.zip), change the path in the next step.
+
+      - name: Generate commit list since last release
+        id: changelog
+        run: |
+          # Find the most recent tag on the current branch
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || echo "")
+
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous tags found. Grabbing all commits."
+            # Sanitize commit messages to prevent shell injection or YAML parsing errors
+            COMMITS=$(git log --pretty=format:"- %s" HEAD | sed 's/`/\\`/g')
+          else
+            echo "Previous tag found: $PREV_TAG"
+            COMMITS=$(git log $PREV_TAG..HEAD --pretty=format:"- %s" | sed 's/`/\\`/g')
+          fi
+
+          # Output the commits to the next step using GitHub Actions multiline string syntax
+          echo "commits<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release and Upload Zip
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}
+          name: ${{ inputs.version }}
+          body: |
+            ## Changelog
+            ${{ steps.changelog.outputs.commits }}
+          files: |
+            package.zip
