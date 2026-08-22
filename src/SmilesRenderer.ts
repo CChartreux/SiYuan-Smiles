@@ -112,7 +112,7 @@ export class SmilesRenderer {
         return `assets/${filename}`;
     }
 
-    showSmilesDialog(initialSmiles: string, protyle: Protyle): void {
+    showSmilesDialog(initialSmiles: string, smilesInline: boolean, protyle: Protyle): void {
         const dialog = new Dialog({
             title: this.i18n.dialogTitle || "Chemical Structure Viewer",
             content: `<div class="smiles-dialog-container" style="display:flex; flex-direction:column; align-items:center; gap:8px; padding:16px; box-sizing:border-box;">
@@ -154,7 +154,10 @@ export class SmilesRenderer {
                 const filename = `smiles-${Date.now()}.png`;
                 const assetPath = await this.uploadToSiyuan(pngBlob, filename);
                 const escapedTitle = notation.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-                protyle.insert(`![Smiles](${assetPath} "${escapedTitle}")`, true, true);
+
+                if (smilesInline) protyle.insert(`![Smiles](${assetPath} "${escapedTitle}")`, false, true);
+                else protyle.insert(`![Smiles](${assetPath} "${escapedTitle}")`, true, true);
+
                 dialog.destroy();
             } catch (err) {
                 errorElement.textContent = String(err);

@@ -1,5 +1,6 @@
 {
-  "insertSmilesDiagram": "Insert SMILES Diagram",
+  "insertInlineSmiles": "Inline SMILES",
+  "insertSmilesBlock": "SMILES block",
   "dialogTitle": "Chemical Structure Viewer",
   "copiedToClipboard": "Copied SVG to clipboard!"
 }
