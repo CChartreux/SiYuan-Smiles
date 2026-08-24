@@ -6,13 +6,17 @@
 
 * 斜杠命令集成：使用 `/chem`、`/smiles` 或 `/insert` 即可快速打开查看器。
 * 实时交互预览：在输入或编辑 SMILES 字符串时实时渲染化学结构图。
-* 高清导出至剪贴板：按 Enter 键自动将矢量图以 4 倍缩放渲染，并将 PNG 图片直接复制到剪贴板。
 
 **使用方法**
 
-* 在任意 Protyle 文档块中输入 `/smiles` 并选择 Insert SMILES Diagram。
+|      | 块级 (Block)                             | 行内 (Inline)                             |
+|------|------------------------------------------|-------------------------------------------|
+| 命令 | /SMILES 块                               | /行内 SMILES                              |
+| 示例 | <img src="blockSmiles.png" height="100"> | <img src="inlineSmiles.png" height="100"> |
+
+* 在任意 Protyle 文档块中输入 `/SMILES 块` 或 `/行内 SMILES` 并选择对应选项。
 * 输入或粘贴 SMILES 字符串（例如 `n1ccccc1`、`CC(=O)OC1=CC=CC=C1C(=O)O`）。
-* 按 Enter 键将高分辨率结构图复制到剪贴板，随后直接粘贴到笔记中。
+* 按 Enter 键，即可在光标所在位置将 SMILES 字符串以 PNG 图片形式插入到笔记中。
 
 ## 引用
 

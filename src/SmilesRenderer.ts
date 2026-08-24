@@ -1,27 +1,69 @@
 // SmilesRenderer.ts
-import { Dialog, Protyle, fetchSyncPost } from "siyuan";
+import {Dialog, fetchSyncPost, Protyle} from "siyuan";
 import SmilesDrawer from "smiles-drawer";
 
 export type AtomVisualization = "default" | "balls" | "allballs";
 export type CarbonVisualization = "none" | "default" | "terminal" | "acyclic" | "all";
+export type SmilesDrawerColorScheme = "dark" | "light";
 
 export interface SmilesDrawerTheme {
-    C: string; O: string; N: string; F: string; CL: string; BR: string;
-    I: string; P: string; S: string; B: string; SI: string; H: string; BACKGROUND: string;
+    C: string;
+    O: string;
+    N: string;
+    F: string;
+    CL: string;
+    BR: string;
+    I: string;
+    P: string;
+    S: string;
+    B: string;
+    SI: string;
+    H: string;
+    BACKGROUND: string;
 }
 
 export interface SmilesMoleculeOptions {
-    width?: number; height?: number; bondThickness?: number; bondLength?: number;
-    shortBondLengthFactor?: number; bondSpacing?: number; atomVisualization?: AtomVisualization;
-    isomeric?: boolean; debug?: boolean; showCarbons?: CarbonVisualization; terminalCarbons?: boolean;
-    explicitHydrogens?: boolean; overlapSensitivity?: number; overlapResolutionIterations?: number;
-    compactDrawing?: boolean; fontFamily?: string; fontSizeLarge?: number; fontSizeSmall?: number;
-    padding?: number; experimentalSSSR?: boolean; themes?: SmilesDrawerTheme[];
+    width?: number;
+    height?: number;
+    bondThickness?: number;
+    bondLength?: number;
+    shortBondLengthFactor?: number;
+    bondSpacing?: number;
+    atomVisualization?: AtomVisualization;
+    isomeric?: boolean;
+    debug?: boolean;
+    showCarbons?: CarbonVisualization;
+    terminalCarbons?: boolean;
+    explicitHydrogens?: boolean;
+    overlapSensitivity?: number;
+    overlapResolutionIterations?: number;
+    compactDrawing?: boolean;
+    fontFamily?: string;
+    fontSizeLarge?: number;
+    fontSizeSmall?: number;
+    padding?: number;
+    experimentalSSSR?: boolean;
+    themes?: SmilesDrawerTheme[];
 }
 
-export interface PlusOptions { size?: number; thickness?: number; }
-export interface ArrowOptions { length?: number; thickness?: number; headSize?: number; margin?: number; }
-export interface SmilesReactionOptions { spacing?: number; fontSize?: number; plus?: PlusOptions; arrow?: ArrowOptions; }
+export interface PlusOptions {
+    size?: number;
+    thickness?: number;
+}
+
+export interface ArrowOptions {
+    length?: number;
+    thickness?: number;
+    headSize?: number;
+    margin?: number;
+}
+
+export interface SmilesReactionOptions {
+    spacing?: number;
+    fontSize?: number;
+    plus?: PlusOptions;
+    arrow?: ArrowOptions;
+}
 
 const DEFAULT_MOLECULE_OPTIONS: SmilesMoleculeOptions = {
     width: 350, height: 350, bondLength: 18, bondThickness: 0.8,
@@ -32,30 +74,33 @@ const DEFAULT_MOLECULE_OPTIONS: SmilesMoleculeOptions = {
 
 const DEFAULT_REACTION_OPTIONS: SmilesReactionOptions = {
     spacing: 10,
-    plus: { size: 5, thickness: 0.8 },
-    arrow: { length: 30, thickness: 1, headSize: 10, margin: 3 },
+    plus: {size: 5, thickness: 0.8},
+    arrow: {length: 30, thickness: 1, headSize: 10, margin: 3},
 };
 
 export class SmilesRenderer {
     private smilesDrawer: InstanceType<typeof SmilesDrawer.SmiDrawer>;
     private readonly smilesMoleculeOptions: SmilesMoleculeOptions;
     private i18n: Record<string, string>;
+    private readonly colorScheme: SmilesDrawerColorScheme;
 
     constructor(
-        i18n: Record<string, string> = {},
+        i18n: Record<string, string>,
+        colorScheme: SmilesDrawerColorScheme = "dark",
         smilesMoleculeOptions?: SmilesMoleculeOptions,
         smilesReactionOptions?: SmilesReactionOptions,
     ) {
         this.i18n = i18n;
-        this.smilesMoleculeOptions = { ...DEFAULT_MOLECULE_OPTIONS, ...smilesMoleculeOptions };
+        this.colorScheme = colorScheme;
+        this.smilesMoleculeOptions = {...DEFAULT_MOLECULE_OPTIONS, ...smilesMoleculeOptions};
         this.smilesDrawer = new SmilesDrawer.SmiDrawer(
             this.smilesMoleculeOptions,
-            { ...DEFAULT_REACTION_OPTIONS, ...smilesReactionOptions },
+            {...DEFAULT_REACTION_OPTIONS, ...smilesReactionOptions},
         );
     }
 
-    private drawSmiles(smiles: string, target: SVGElement, onSuccess: () => void, onError: (err: string) => void): void {
-        this.smilesDrawer.draw(smiles, target, "dark", onSuccess, onError);
+    private drawSmiles(smiles: string, target: SVGElement, onSuccess: () => void, onError: (err: string) => void) {
+        this.smilesDrawer.draw(smiles, target, this.colorScheme, onSuccess, onError);
     }
 
     private getNotation(smiles: string): Promise<string> {
@@ -64,55 +109,38 @@ export class SmilesRenderer {
                 SmilesDrawer.parse(smiles,
                     (molecule: any) => resolve(molecule?.getFormula?.() ?? smiles),
                     () => resolve(smiles));
-            } catch { resolve(smiles); }
+            } catch {
+                resolve(smiles);
+            }
         });
     }
 
-    private captureSvgFromDialog(dialog: Dialog, imageScaleFactor: number = 4): string {
-        const svgElement = dialog.element.querySelector(".siyuan-smiles-svg") as SVGSVGElement;
-        if (!svgElement) return "";
+    async saveSvgToSiYuan(svg: SVGSVGElement, imageScaling: number = 4): Promise<string> {
+        const image = new Image();
+        image.src = `data:image/svg+xml;utf8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`;
+        await image.decode();
 
-        const { x, y, width = 350, height = 350 } = svgElement.viewBox.baseVal;
-
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="${width * imageScaleFactor}" height="${height * imageScaleFactor}" viewBox="${x} ${y} ${width} ${height}">${svgElement.innerHTML}</svg>`;
-    }
-
-    private async svgToPngBlob(svgXml: string): Promise<Blob> {
-        const imageElement = new Image();
-        imageElement.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgXml);
-        await imageElement.decode();
+        const width = image.width * imageScaling;
+        const height = image.height * imageScaling;
 
         const canvas = document.createElement("canvas");
-        canvas.width = imageElement.naturalWidth || imageElement.width;
-        canvas.height = imageElement.naturalHeight || imageElement.height;
+        Object.assign(canvas, { width, height });
+        canvas.getContext("2d")?.drawImage(image, 0, 0, width, height);
 
-        const ctx = canvas.getContext("2d");
-        if (!ctx) throw new Error("Failed to get 2D canvas context");
+        const blob = await new Promise<Blob>((resolve) =>
+            canvas.toBlob((b) => resolve(b!), "image/png"));
 
-        ctx.drawImage(imageElement, 0, 0);
-
-        return new Promise((resolve, reject) =>
-            canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error("Failed to create PNG blob")), "image/png"));
-    }
-
-    private async uploadToSiyuan(blob: Blob, filename: string): Promise<string> {
+        const path = `assets/image-${Date.now()}.png`;
         const formData = new FormData();
-        const fullPath = `/data/assets/${filename}`;
+        formData.append("path", `/data/${path}`);
+        formData.append("file", blob);
 
-        formData.append("path", fullPath);
-        formData.append("file", blob, filename);
-        formData.append("isDir", "false");
-        formData.append("modTime", Math.floor(Date.now() / 1000).toString());
+        await fetchSyncPost("/api/file/putFile", formData);
 
-        const result = await fetchSyncPost("/api/file/putFile", formData);
-        if (result.code !== 0) {
-            throw new Error(result.msg || "Failed to save image to Siyuan");
-        }
-
-        return `assets/${filename}`;
+        return path;
     }
 
-    showSmilesDialog(initialSmiles: string, smilesInline: boolean, protyle: Protyle): void {
+    showSmilesDialog(initialSmiles: string, smilesInline: boolean, protyle: Protyle) {
         const dialog = new Dialog({
             title: this.i18n.dialogTitle || "Chemical Structure Viewer",
             content: `<div class="smiles-dialog-container" style="display:flex; flex-direction:column; align-items:center; gap:8px; padding:16px; box-sizing:border-box;">
@@ -129,9 +157,9 @@ export class SmilesRenderer {
 
         const render = () => {
             errorElement.textContent = "";
-            this.drawSmiles(inputElement.value.trim(), svgElement,
+            this.drawSmiles(inputElement.value, svgElement,
                 () => {
-                    const { width, height } = svgElement.viewBox.baseVal;
+                    const {width, height} = svgElement.viewBox.baseVal;
                     svgElement.style.width = `${width * 2}px`;
                     svgElement.style.height = `${height * 2}px`;
                 },
@@ -141,22 +169,19 @@ export class SmilesRenderer {
         render();
         inputElement.oninput = render;
 
-        inputElement.onkeydown = async e => {
-            if (e.key !== "Enter") return;
-            e.preventDefault();
-            const rawSmiles = inputElement.value.trim();
-            const svgXml = this.captureSvgFromDialog(dialog);
-            if (!svgXml) return;
+        inputElement.onkeydown = async (keyboardEvent) => {
+            if (keyboardEvent.key !== "Enter") return;
+            keyboardEvent.preventDefault();
+
+            const svgElement = dialog.element.querySelector(".siyuan-smiles-svg") as SVGSVGElement;
 
             try {
-                const pngBlob = await this.svgToPngBlob(svgXml);
-                const notation = await this.getNotation(rawSmiles);
-                const filename = `smiles-${Date.now()}.png`;
-                const assetPath = await this.uploadToSiyuan(pngBlob, filename);
-                const escapedTitle = notation.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+                const [assetPath, notation] = await Promise.all([
+                    this.saveSvgToSiYuan(svgElement),
+                    this.getNotation(inputElement.value),
+                ]);
 
-                if (smilesInline) protyle.insert(`![Smiles](${assetPath} "${escapedTitle}")`, false, true);
-                else protyle.insert(`![Smiles](${assetPath} "${escapedTitle}")`, true, true);
+                protyle.insert(`![Smiles](${assetPath} "${notation}")`, !smilesInline, true);
 
                 dialog.destroy();
             } catch (err) {

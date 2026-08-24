@@ -1,14 +1,16 @@
 import {Plugin} from "siyuan";
-import {SmilesRenderer} from "./SmilesRenderer";
+import {SmilesDrawerColorScheme, SmilesRenderer} from "./SmilesRenderer";
 
 // noinspection JSUnusedGlobalSymbols
 export default class SmilesRendererPlugin extends Plugin {
     private smilesRenderer: SmilesRenderer;
 
     async onload() {
-        // Initialize the SmilesDrawer instance during plugin load
-        this.smilesRenderer = new SmilesRenderer();
+        // Get current color scheme
+        const siyuanColorScheme = document.documentElement.getAttribute("data-theme-mode") as SmilesDrawerColorScheme;
 
+        // Initialize the SmilesDrawer instance during plugin load
+        this.smilesRenderer = new SmilesRenderer(this.i18n, siyuanColorScheme);
 
         this.protyleSlash = [
             // Register a slash command to open the Dialog and paste SMILES inline
@@ -29,9 +31,6 @@ export default class SmilesRendererPlugin extends Plugin {
                 this.smilesRenderer.showSmilesDialog("n1ccccc1", false, protyle);
             },
         }];
-
-
-
     }
 
     onunload() {
